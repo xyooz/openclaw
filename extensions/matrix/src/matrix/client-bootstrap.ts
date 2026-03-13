@@ -2,11 +2,13 @@ import { getMatrixRuntime } from "../runtime.js";
 import type { CoreConfig } from "../types.js";
 import { getActiveMatrixClient } from "./active-client.js";
 import { isBunRuntime, resolveMatrixAuthContext, resolveSharedMatrixClient } from "./client.js";
+import { stopSharedClientForAccount } from "./client/shared.js";
 import type { MatrixClient } from "./sdk.js";
 
 type ResolvedRuntimeMatrixClient = {
   client: MatrixClient;
   stopOnDone: boolean;
+  cleanup?: (mode: ResolvedRuntimeMatrixClientStopMode) => Promise<void>;
 };
 
 type MatrixRuntimeClientReadiness = "none" | "prepared" | "started";
@@ -67,7 +69,18 @@ async function resolveRuntimeMatrixClient(opts: {
     accountId: authContext.accountId,
   });
   await opts.onResolved?.(client, { preparedByDefault: true });
-  return { client, stopOnDone: false };
+  return {
+    client,
+    stopOnDone: true,
+    cleanup: async (mode) => {
+      if (mode === "persist") {
+        await client.stopAndPersist();
+      } else {
+        client.stop();
+      }
+      stopSharedClientForAccount(authContext.resolved);
+    },
+  };
 }
 
 export async function resolveRuntimeMatrixClientWithReadiness(opts: {
@@ -97,6 +110,10 @@ export async function stopResolvedRuntimeMatrixClient(
   mode: ResolvedRuntimeMatrixClientStopMode = "stop",
 ): Promise<void> {
   if (!resolved.stopOnDone) {
+    return;
+  }
+  if (resolved.cleanup) {
+    await resolved.cleanup(mode);
     return;
   }
   if (mode === "persist") {

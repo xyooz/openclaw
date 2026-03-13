@@ -6,6 +6,7 @@ type MatrixClientResolverMocks = {
   getMatrixRuntimeMock: Mock<() => unknown>;
   getActiveMatrixClientMock: Mock<(...args: unknown[]) => MatrixClient | null>;
   resolveSharedMatrixClientMock: Mock<(...args: unknown[]) => Promise<MatrixClient>>;
+  stopSharedClientForAccountMock: Mock<(...args: unknown[]) => void>;
   isBunRuntimeMock: Mock<() => boolean>;
   resolveMatrixAuthContextMock: Mock<
     (params: { cfg: unknown; accountId?: string | null }) => unknown
@@ -17,6 +18,7 @@ export const matrixClientResolverMocks: MatrixClientResolverMocks = {
   getMatrixRuntimeMock: vi.fn(),
   getActiveMatrixClientMock: vi.fn(),
   resolveSharedMatrixClientMock: vi.fn(),
+  stopSharedClientForAccountMock: vi.fn(),
   isBunRuntimeMock: vi.fn(() => false),
   resolveMatrixAuthContextMock: vi.fn(),
 };
@@ -42,6 +44,7 @@ export function primeMatrixClientResolverMocks(params?: {
     getMatrixRuntimeMock,
     getActiveMatrixClientMock,
     resolveSharedMatrixClientMock,
+    stopSharedClientForAccountMock,
     isBunRuntimeMock,
     resolveMatrixAuthContextMock,
   } = matrixClientResolverMocks;
@@ -67,6 +70,7 @@ export function primeMatrixClientResolverMocks(params?: {
   });
   getActiveMatrixClientMock.mockReturnValue(null);
   isBunRuntimeMock.mockReturnValue(false);
+  stopSharedClientForAccountMock.mockReset();
   resolveMatrixAuthContextMock.mockImplementation(
     ({
       cfg: explicitCfg,

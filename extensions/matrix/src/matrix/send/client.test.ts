@@ -9,6 +9,7 @@ const {
   getMatrixRuntimeMock,
   getActiveMatrixClientMock,
   resolveSharedMatrixClientMock,
+  stopSharedClientForAccountMock,
   isBunRuntimeMock,
   resolveMatrixAuthContextMock,
 } = matrixClientResolverMocks;
@@ -21,6 +22,10 @@ vi.mock("../client.js", () => ({
   resolveSharedMatrixClient: (...args: unknown[]) => resolveSharedMatrixClientMock(...args),
   isBunRuntime: () => isBunRuntimeMock(),
   resolveMatrixAuthContext: resolveMatrixAuthContextMock,
+}));
+
+vi.mock("../client/shared.js", () => ({
+  stopSharedClientForAccount: (...args: unknown[]) => stopSharedClientForAccountMock(...args),
 }));
 
 vi.mock("../../runtime.js", () => ({
@@ -43,7 +48,7 @@ describe("withResolvedMatrixClient", () => {
     vi.unstubAllEnvs();
   });
 
-  it("reuses the shared client pool when no active monitor client is registered", async () => {
+  it("stops one-off shared clients when no active monitor client is registered", async () => {
     vi.stubEnv("OPENCLAW_GATEWAY_PORT", "18799");
 
     const result = await withResolvedMatrixClient({ accountId: "default" }, async () => "ok");
@@ -57,7 +62,10 @@ describe("withResolvedMatrixClient", () => {
     });
     const sharedClient = await resolveSharedMatrixClientMock.mock.results[0]?.value;
     expect(sharedClient.prepareForOneOff).toHaveBeenCalledTimes(1);
-    expect(sharedClient.stop).not.toHaveBeenCalled();
+    expect(sharedClient.stop).toHaveBeenCalledTimes(1);
+    expect(stopSharedClientForAccountMock).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "@bot:example.org" }),
+    );
     expect(result).toBe("ok");
   });
 
@@ -115,7 +123,7 @@ describe("withResolvedMatrixClient", () => {
     });
   });
 
-  it("keeps shared matrix clients alive when wrapped sends fail", async () => {
+  it("stops shared matrix clients when wrapped sends fail", async () => {
     const sharedClient = createMockMatrixClient();
     resolveSharedMatrixClientMock.mockResolvedValue(sharedClient);
 
@@ -125,6 +133,9 @@ describe("withResolvedMatrixClient", () => {
       }),
     ).rejects.toThrow("boom");
 
-    expect(sharedClient.stop).not.toHaveBeenCalled();
+    expect(sharedClient.stop).toHaveBeenCalledTimes(1);
+    expect(stopSharedClientForAccountMock).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: "@bot:example.org" }),
+    );
   });
 });
